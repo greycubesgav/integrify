@@ -11,12 +11,14 @@ debug=1
 
 function show_help {
  cat << EOF
-Usage: ${0##*/} [-w] FILE
+Usage: ${0##*/} [OPTIONS] FILE
 Check the integ checksum file attribute and optionally add the checksum
-  -a     Add a new checksum to FILE
-  -v     Verbose messages
-  -d     Remove the checksum from FILE
-  -f     Set the digest function to write, default 'sha1'
+
+Option  Meaning
+ -a     Add a new checksum to FILE
+ -v     Verbose messages
+ -d     Remove the checksum from FILE
+ -f     Set the digest function to write, default 'sha1'
 
 Examples:
    Check a files integrity checksum
