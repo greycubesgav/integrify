@@ -1,6 +1,7 @@
 # integrify
 Shell script which stores a digest of a file's content within it's extended attributes.
 
+```
 Usage: integrify [OPTIONS] FILE
 Check the integrity checksum file attribute and optionally add the checksum
 
@@ -21,3 +22,4 @@ Info:
   When copying files, extended attributes should be preserved to ensure integrity data is copied.
   e.g. rsync -X source destination
        osx : cp -p source destination
+```
