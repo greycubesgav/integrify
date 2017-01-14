@@ -13,7 +13,7 @@ function show_help {
  cat << EOF
 Usage: ${0##*/} [-w] FILE
 Check the integ checksum file attribute and optionally add the checksum
-  -w     Write a new checksum to FILE
+  -a     Add a new checksum to FILE
   -v     Verbose messages
   -d     Remove the checksum from FILE
   -f     Set the digest function to write, default 'sha1'
@@ -22,7 +22,7 @@ Examples:
    Check a files integrity checksum
      ${0##*/} myfile.jpg
 
-   Write a new checksum to a file
+   Add a new checksum to a file
      ${0##*/} -w myfile.jpg
 
 Info:
@@ -63,7 +63,7 @@ function write_checksum {
   elif [[ "${OSTYPE}" == 'darwin15' ]]; then
     xattr -w "${attrib_key}" "${checksum}" "${input_file}" 2>/dev/null
   elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
-    stored_cs_raw=$(getextattr -q user "integ.${digest}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
+    stored_cs_raw=$(getextattr -q user "${attrib_key}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
   fi
   return $?
 }
@@ -75,7 +75,7 @@ function remove_checksum {
   elif [[ "${OSTYPE}" == 'darwin15' ]]; then
     xattr -d "${attrib_key}" "${input_file}" 2>/dev/null
   elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
-    stored_cs_raw=$(getextattr -q user "integ.${digest}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
+    stored_cs_raw=$(getextattr -q user "${attrib_key}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
     stored_cs="${stored_cs_raw}"
   fi
   return $?
@@ -87,13 +87,13 @@ digest='sha1'
 action='read'
 
 OPTIND=1
-while getopts "vh?wrdf:" opt; do
+while getopts "vh?ardf:" opt; do
     case "$opt" in
     h|\?)
         show_help
         exit 0
         ;;
-    w)  action='write'
+    a)  action='write'
         ;;
     d)  action='delete'
         ;;
@@ -144,7 +144,11 @@ if [ "${action}" == 'write' ]; then
   if [ "$ret" -eq "0" ]; then
     file_current_checksum=$(read_checksum "${filename}")
     if [ "${file_calc_checksum}" == "${file_current_checksum}" ]; then
-      echo "${filename} : ${file_calc_checksum}"
+      echo -n "${filename}"
+      if [ "$verbose" -gt "0" ]; then
+        echo -n ": ${digest} : ${file_calc_checksum}"
+      fi
+      echo " : added"
     else
       echo "Calculated checksum and filesystem read checksum differ!" 1>&2
       echo "${filename} : disk; ${file_current_checksum} : calc; ${file_calc_checksum}" 1>&2
@@ -161,9 +165,13 @@ if [ "$action" == 'delete' ]; then
  file_current_checksum=$(read_checksum "${filename}")
  if [ "${file_current_checksum}" == "" ]; then
    # We don't have any checksum
-   echo "${filename} : <removed>"
+   echo -n "${filename} "
+   if [ "$verbose" -gt "0" ]; then
+     echo -n ": ${digest} "
+   fi
+   echo ": <removed>"
  else
-   echo "Failed to remove checksum" 1>&2
+   echo "Failed to remove checksum for digest ${digest}" 1>&2
  fi
 fi
 
@@ -177,14 +185,14 @@ if [ "$action" == 'read' ]; then
   else
     file_calc_checksum=$(generate_checksum "${digest}" "${filename}")
     if [ "${file_calc_checksum}" == "${file_current_checksum}" ]; then
-      echo -n "${filename} : pass"
+      echo -n "${filename}"
       if [ "$verbose" -gt "0" ]; then
-        echo -n " : ${file_calc_checksum}"
+        echo -n " : ${digest} : ${file_calc_checksum}"
       fi
-      echo
+      echo " : passed"
     else
       if [ "$verbose" -gt "0" ]; then
-        echo "${filename} : disk; ${file_current_checksum} : calc; ${file_calc_checksum}" 1>&2
+        echo "${filename} : ${digest} : disk; ${file_current_checksum} : calc; ${file_calc_checksum}" 1>&2
       else
         echo "${filename} : fail" 1>&2
       fi
