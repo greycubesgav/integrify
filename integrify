@@ -51,8 +51,7 @@ function read_checksum {
     stored_cs_raw=$(xattr -p "${attrib_key}" "${input_file}" 2>/dev/null )
     stored_cs="${stored_cs_raw}"
   elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
-    stored_cs_raw=$(getextattr -q user "${attrib_key}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
-    stored_cs="${stored_cs_raw}"
+    stored_cs=$(getextattr user "${attrib_key}" "${input_file}" 2>/dev/null | awk '{print $2}' )
   fi
   echo "${stored_cs}"
 }
@@ -65,7 +64,7 @@ function write_checksum {
   elif [[ "${OSTYPE}" == 'darwin15' ]]; then
     xattr -w "${attrib_key}" "${checksum}" "${input_file}" 2>/dev/null
   elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
-    stored_cs_raw=$(getextattr -q user "${attrib_key}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
+    setextattr user "${attrib_key}" "${checksum}" "${input_file}" #2>/dev/null
   fi
   return $?
 }
@@ -77,8 +76,7 @@ function remove_checksum {
   elif [[ "${OSTYPE}" == 'darwin15' ]]; then
     xattr -d "${attrib_key}" "${input_file}" 2>/dev/null
   elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
-    stored_cs_raw=$(getextattr -q user "${attrib_key}" -p "${attrib_key}" "${input_file}" 2>/dev/null )
-    stored_cs="${stored_cs_raw}"
+    rmextattr user "${attrib_key}" "${checksum}" "${input_file}" 2>/dev/null
   fi
   return $?
 }
