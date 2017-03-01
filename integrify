@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Default action
 # 1 = Check if checksum stored and correct, report
@@ -19,6 +19,7 @@ Option  Meaning
  -v     Verbose messages
  -d     Remove the checksum from FILE
  -f     Set the digest function to write, default 'sha1'
+ -l     List files checksums as per a sfv file
 
 Examples:
    Check a files integrity checksum
@@ -32,6 +33,8 @@ Info:
   integrity data is copied.
   e.g. rsync -X source destination
        osx : cp -p source destination
+
+  This script assumes opensll is available in your path.
 EOF
   exit 1
 }
@@ -45,13 +48,20 @@ function generate_checksum {
 
 function read_checksum {
   input_file="$1"
-  if [[ "${OSTYPE}" == 'linux-gnu' ]]; then
+  selected=0
+  if [[ "${OSTYPE}" =~ ^linux* ]]; then
+    selected=1
     stored_cs=$(getfattr -n "${attrib_key}" "${input_file}" 2>/dev/null  | grep "${attrib_key}" | awk -F'=' '{print $2}' | sed -e 's/\"//g' )
-  elif [[ "${OSTYPE}" == 'darwin15' ]]; then
+  elif [[ "${OSTYPE}" =~ ^darwin* ]]; then
+    selected=1
     stored_cs_raw=$(xattr -p "${attrib_key}" "${input_file}" 2>/dev/null )
     stored_cs="${stored_cs_raw}"
-  elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
+  elif [[ "${OSTYPE}" =~ ^freebsd* ]]; then
+    selected=1
     stored_cs=$(getextattr user "${attrib_key}" "${input_file}" 2>/dev/null | awk '{print $2}' )
+  fi
+  if [ "$selected" -eq '0' ]; then
+    echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
   fi
   echo "${stored_cs}"
 }
@@ -59,24 +69,44 @@ function read_checksum {
 function write_checksum {
   checksum="$1"
   input_file="$2"
-  if [[ "${OSTYPE}" == 'linux-gnu' ]]; then
+  selected=0
+  if [[ "${OSTYPE}" =~ ^linux* ]]; then
+    selected=1
     stored_cs_raw=$(setfattr -n "${attrib_key}" -v "${checksum}" "${input_file}")
-  elif [[ "${OSTYPE}" == 'darwin15' ]]; then
-    xattr -w "${attrib_key}" "${checksum}" "${input_file}" 2>/dev/null
-  elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
+    ret=$?
+  elif [[ "${OSTYPE}" =~ ^darwin* ]]; then
+    selected=1
+    result=$(xattr -w "${attrib_key}" "${checksum}" "${input_file}" 1>&2)
+    ret=$?
+  elif [[ "${OSTYPE}" =~ ^freebsd* ]]; then
+    selected=1
     setextattr user "${attrib_key}" "${checksum}" "${input_file}" #2>/dev/null
+    ret=$?
+  fi
+  if [ "$selected" -eq '0' ]; then
+    echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
   fi
   return $?
 }
 
 function remove_checksum {
   input_file="$1"
-  if [[ "${OSTYPE}" == 'linux-gnu' ]]; then
+  selected=0
+  if [[ "${OSTYPE}" =~ ^linux* ]]; then
+    selected=1
     setfattr -x "${attrib_key}" "${input_file}" 2>/dev/null
-  elif [[ "${OSTYPE}" == 'darwin15' ]]; then
+    ret=$?
+  elif [[ "${OSTYPE}" =~ ^darwin* ]]; then
+    selected=1
     xattr -d "${attrib_key}" "${input_file}" 2>/dev/null
-  elif [[ "${OSTYPE}" == 'freebsd10.3' ]]; then
+    ret=$?
+  elif [[ "${OSTYPE}" =~ ^freebsd* ]]; then
+    selected=1
     rmextattr user "${attrib_key}" "${checksum}" "${input_file}" 2>/dev/null
+    ret=$?
+  fi
+  if [ "$selected" -eq '0' ]; then
+    echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
   fi
   return $?
 }
@@ -84,10 +114,10 @@ function remove_checksum {
 # Set Default Options
 verbose=0
 digest='sha1'
-action='read'
+action='check'
 
 OPTIND=1
-while getopts "vh?ardf:" opt; do
+while getopts "vh?ardlcf:" opt; do
     case "$opt" in
     h|\?)
         show_help
@@ -96,6 +126,10 @@ while getopts "vh?ardf:" opt; do
     a)  action='write'
         ;;
     d)  action='delete'
+        ;;
+    l)  action='list'
+        ;;
+    c)  action='check'
         ;;
     v)  verbose='1'
         ;;
@@ -112,9 +146,23 @@ if [[ "${OSTYPE}" == 'linux-gnu' ]]; then
   attrib_key="user.${attrib_key}"
 fi
 
+if [ -z "$1" ]; then
+  show_help
+  exit 0
+fi
+
 for filename in "$@"
 do
 
+if [ ! -e "${filename}" ]; then
+  echo "${filename} File not found!" 1>&2
+  continue
+fi
+
+if [ "${action}" == 'list' ]; then
+   file_current_checksum=$(read_checksum "${filename}")
+   echo "${filename} ${file_current_checksum}"
+fi
 # Generate the checksum for the file, we always need this
 
 if [ "${action}" == 'write' ]; then
@@ -175,7 +223,7 @@ if [ "$action" == 'delete' ]; then
  fi
 fi
 
-if [ "$action" == 'read' ]; then
+if [ "$action" == 'check' ]; then
   # Check if checksum stored and correct, report
   # Get any current checksum
   file_current_checksum=$(read_checksum "${filename}")
