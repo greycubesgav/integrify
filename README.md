@@ -6,10 +6,12 @@ Usage: integrify [OPTIONS] FILE
 Check the integrity checksum file attribute and optionally add the checksum
 
 Option  Meaning
- -a     Add a new checksum to FILE
- -v     Verbose messages
- -d     Remove the checksum from FILE
- -f     Set the digest function to write, default 'sha1'
+  -c     Check the checksum
+  -a     Add a new checksum to FILE
+  -d     Remove the checksum from FILE
+  -l     List files checksums as per a sfv file
+  -f     Set the digest function to write, default 'sha1'
+  -v     Verbose messages
 
 Examples:
    Check a file's integrity checksum
