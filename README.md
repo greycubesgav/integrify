@@ -24,4 +24,23 @@ Info:
   When copying files, extended attributes should be preserved to ensure integrity data is copied.
   e.g. rsync -X source destination
        osx : cp -p source destination
+
 ```
+### Benefits
+
+* Unlike an external .sfv file, the checksum data is stored along with the file metadata meaning individual files can be moved between directories, or
+even copied between servers (using a tool such as rsync) and the checksum data remains.
+
+
+### Use Cases
+
+#### Digital Photography - Corrupt Photo Detection
+
+1. RAW image files are copied from the camera to disk
+2. Integrify checksums are added to the file after copying
+3. One of the files becomes corrupt through underlaying disk failure.
+
+###### Identify the corrupt file
+
+    integrify -c _D600023.NEF
+    _D600023.NEF : passed
