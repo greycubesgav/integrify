@@ -23,7 +23,6 @@ Option  Meaning
  -f     Set the digest function to write, default 'sha1'
  -v     Verbose messages
 
-
 Examples:
    Check a files integrity checksum
      ${0##*/} myfile.jpg
@@ -45,7 +44,23 @@ EOF
 function generate_checksum {
   digest="$1"
   input_file="$2"
-  calc_cs=$(openssl dgst -${digest} "${input_file}" | awk '{print $2}')
+  digest_upper=$(echo "$digest"|awk '{print toupper($0)}')
+  ssl_output=$(openssl dgst -${digest} "${input_file}")
+  # SHA1(test 02.dat)= 0786316c9cb2df38a0e4a63c465fa6ba04cda3e7
+  selected=0
+  if [[ "${OSTYPE}" =~ ^linux* ]]; then
+    selected=1
+    calc_cs=$(echo "${ssl_output}" | sed -E "s/${digest_upper}\(${input_file}\)= //" )
+  elif [[ "${OSTYPE}" =~ ^darwin* ]]; then
+    selected=1
+    calc_cs=$(echo "${ssl_output}" | sed -E "s/${digest_upper}\(${input_file}\)= //" )
+  elif [[ "${OSTYPE}" =~ ^freebsd* ]]; then
+    selected=1
+    calc_cs=$(echo "${ssl_output}" | sed -E "s/${digest_upper}\(${input_file}\)= //" )
+  fi
+  if [ "$selected" -eq '0' ]; then
+    echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
+  fi
   echo "${calc_cs}"
 }
 
@@ -145,7 +160,7 @@ shift "$((OPTIND-1))" # Shift off the options and optional --.
 
 # Set the attribute
 attrib_key="integ.${digest}"
-if [[ "${OSTYPE}" == 'linux-gnu' ]]; then
+if [[ "${OSTYPE}" =~ ^linux* ]]; then
   attrib_key="user.${attrib_key}"
 fi
 
