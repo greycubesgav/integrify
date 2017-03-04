@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+# Simple script which used integrify to locate duplicate files within a directory
+# Tested on Darwin 16.4.0 (macOS Sierra 10.12.x)
+
+input_dir="$1"
+integ_tmp_file="/tmp/$(date +'%s')_$$.integ"
+duplicates_list=$(find "$input_dir" -type f -print0  | xargs -0 integrify -l  | sort | tee "$integ_tmp_file" | awk '{print $1}'| uniq -d)
+
+IFS=$'\n';
+set -f;
+for checksum in "$duplicates_list"; do
+  grep "$checksum" "$integ_tmp_file"
+done;
+set +f;
+unset IFS
+
+rm -f "$integ_tmp_file"
