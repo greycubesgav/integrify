@@ -16,10 +16,11 @@ Check the integ checksum file attribute and optionally add the checksum
 
 Option  Meaning
 
- -c     Check the checksum
+ -c     Check the checksum of FILE
  -a     Add a new checksum to FILE
+ -s     When adding new checksums skip if the file already has checksum data
  -d     Remove the checksum from FILE
- -l     List files checksums as per a sfv file
+ -l     List files checksums as per a shasum output
  -f     Set the digest function to write, default 'sha1'
  -v     Verbose messages
 
@@ -41,26 +42,35 @@ EOF
   exit 1
 }
 
+function debugf {
+ if [ $debug -gt 0 ]; then
+   echo "@$"
+ fi
+}
+
 function generate_checksum {
+  #test
   digest="$1"
   input_file="$2"
-  digest_upper=$(echo "$digest"|awk '{print toupper($0)}')
+  #printf 'generate_checksum(digest: "%s", input_file: "%s")\n' "$digest" "$input_file" 1>&2
   ssl_output=$(openssl dgst -${digest} "${input_file}")
   # SHA1(test 02.dat)= 0786316c9cb2df38a0e4a63c465fa6ba04cda3e7
+  #printf '\t ssl_output: %s\n' "$ssl_output" 1>&2
   selected=0
   if [[ "${OSTYPE}" =~ ^linux* ]]; then
     selected=1
-    calc_cs=$(echo "${ssl_output}" | sed -E "s/${digest_upper}\(${input_file}\)= //" )
+    calc_cs=$(echo "${ssl_output}" | sed -E 's/^[[:alnum:]_]+\(.*\)= ([[:alnum:]_]+)$/\1/' )
   elif [[ "${OSTYPE}" =~ ^darwin* ]]; then
     selected=1
-    calc_cs=$(echo "${ssl_output}" | sed -E "s/${digest_upper}\(${input_file}\)= //" )
+    calc_cs=$(echo "${ssl_output}" | sed -E 's/^[[:alnum:]_]+\(.*\)= ([[:alnum:]_]+)$/\1/' )
   elif [[ "${OSTYPE}" =~ ^freebsd* ]]; then
     selected=1
-    calc_cs=$(echo "${ssl_output}" | sed -E "s/${digest_upper}\(${input_file}\)= //" )
+    calc_cs=$(echo "${ssl_output}" | sed -E 's/^[[:alnum:]_]+\(.*\)= ([[:alnum:]_]+)$/\1/' )
   fi
   if [ "$selected" -eq '0' ]; then
     echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
   fi
+  #printf '\t result: %s\n' "$calc_cs" 1>&2
   echo "${calc_cs}"
 }
 
@@ -81,6 +91,7 @@ function read_checksum {
   if [ "$selected" -eq '0' ]; then
     echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
   fi
+  #printf 'Stored: [%s]\n' "${stored_cs}" 1>&2
   echo "${stored_cs}"
 }
 
@@ -88,6 +99,7 @@ function write_checksum {
   checksum="$1"
   input_file="$2"
   selected=0
+  # #printf 'write_checksum(checksum:[%s],input_file:[%s])\n' "$checksum" "$input_file" 1>&2
   if [[ "${OSTYPE}" =~ ^linux* ]]; then
     selected=1
     stored_cs_raw=$(setfattr -n "${attrib_key}" -v "${checksum}" "${input_file}")
@@ -131,17 +143,20 @@ function remove_checksum {
 
 # Set Default Options
 verbose=0
+skip_files=0
 digest='sha1'
 action='check'
 
 OPTIND=1
-while getopts "vh?ardlcf:" opt; do
+while getopts "vh?arsdlcf:" opt; do
     case "$opt" in
     h|\?)
         show_help
         exit 0
         ;;
     a)  action='write'
+        ;;
+    s)  skip_files='1'
         ;;
     d)  action='delete'
         ;;
@@ -173,56 +188,74 @@ for filename in "$@"
 do
 
 if [ ! -e "${filename}" ]; then
-  echo "${filename} File not found!" 1>&2
+  echo "(${filename}) File not found!" 1>&2
+  continue
+fi
+
+if [ ! -f "${filename}" ]; then
+  echo "integrify: (${filename}) Is a directory" 1>&2
   continue
 fi
 
 if [ "${action}" == 'list' ]; then
    file_current_checksum=$(read_checksum "${filename}")
-   echo "${filename} ${file_current_checksum}"
+   if [ ! -z "$file_current_checksum" ]; then
+     echo "${file_current_checksum}  ${filename}"
+   fi
 fi
 # Generate the checksum for the file, we always need this
 
 if [ "${action}" == 'write' ]; then
-  #--------------------------------------
-  # Add new checksum
-  #--------------------------------------
-  # This code assumes that it is not worth;
-  #   reading any existing checksum,
-  #   calculating the current checksum
-  #   comparing
-  #   only writing a new one if it's difference
-  # If the read access of a device is *significantly* faster than a write, it
-  # may be more efficient to read any current checksum first to save a potential
-  # write. This code does not assume this.
-  # Algorithm:
-  #  Calculate the current checksum
-  #  Write it to the file attribute
-  #  Read the checksum from disk and compare to in memory calculated one, this
-  #   ensures the attribute was written to disk ok
-
-  # Calculate the current checksum
-  file_calc_checksum=$(generate_checksum "${digest}" "${filename}")
-
-  # Write the checksum to disk
-  write_checksum "${file_calc_checksum}" "${filename}"
-  ret=$?
-  if [ "$ret" -eq "0" ]; then
-    file_current_checksum=$(read_checksum "${filename}")
-    if [ "${file_calc_checksum}" == "${file_current_checksum}" ]; then
-      echo -n "${filename}"
-      if [ "$verbose" -gt "0" ]; then
-        echo -n ": ${digest} : ${file_calc_checksum}"
-      fi
-      echo " : added"
-    else
-      echo "Calculated checksum and filesystem read checksum differ!" 1>&2
-      echo "${filename} : disk; ${file_current_checksum} : calc; ${file_calc_checksum}" 1>&2
-      exit 4
+  file_current_checksum=$(read_checksum "${filename}")
+  if [ ! -z "${file_current_checksum}" ] && [ "${skip_files}" -gt 0 ]; then
+    if [ "$verbose" -gt "0" ]; then
+      echo "${filename} : skipping"
     fi
+    continue
   else
-    echo "Error writing checksum to attribute" 1>&2
-    exit 2
+    #if [ "$verbose" -gt "0" ]; then
+      #echo "adding checksum to ${filename}"
+    #fi
+    #--------------------------------------
+    # Add new checksum
+    #--------------------------------------
+    # This code assumes that it is not worth;
+    #   reading any existing checksum,
+    #   calculating the current checksum
+    #   comparing
+    #   only writing a new one if it's difference
+    # If the read access of a device is *significantly* faster than a write, it
+    # may be more efficient to read any current checksum first to save a potential
+    # write. This code does not assume this.
+    # Algorithm:
+    #  Calculate the current checksum
+    #  Write it to the file attribute
+    #  Read the checksum from disk and compare to in memory calculated one, this
+    #   ensures the attribute was written to disk ok
+
+    # Calculate the current checksum
+    file_calc_checksum=$(generate_checksum "${digest}" "${filename}")
+
+    # Write the checksum to disk
+    write_checksum "${file_calc_checksum}" "${filename}"
+    ret=$?
+    if [ "$ret" -eq "0" ]; then
+     file_current_checksum=$(read_checksum "${filename}")
+      if [ "${file_calc_checksum}" == "${file_current_checksum}" ]; then
+        echo -n "${filename}"
+        if [ "$verbose" -gt "0" ]; then
+          echo -n ": ${digest} : ${file_calc_checksum}"
+        fi
+        echo " : added"
+      else
+        echo "${filename} : Calculated checksum and filesystem read checksum differ!" 1>&2
+        echo "  disk; [${file_current_checksum}] : calc; [${file_calc_checksum}]" 1>&2
+        continue
+      fi
+    else
+      echo "Error writing checksum to attribute" 1>&2
+      exit 2
+    fi
   fi
 fi
 
@@ -255,14 +288,14 @@ if [ "$action" == 'check' ]; then
       if [ "$verbose" -gt "0" ]; then
         echo -n " : ${digest} : ${file_calc_checksum}"
       fi
-      echo " : passed"
+      echo ": OK"
     else
       if [ "$verbose" -gt "0" ]; then
         echo "${filename} : ${digest} : disk; ${file_current_checksum} : calc; ${file_calc_checksum}" 1>&2
       else
-        echo "${filename} : fail" 1>&2
+        echo "${filename}: FAILED" 1>&2
       fi
-      exit 4
+      continue
     fi
   fi
 fi
