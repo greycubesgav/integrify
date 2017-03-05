@@ -25,11 +25,38 @@ Option  Meaning
  -v     Verbose messages
 
 Examples:
-   Check a files integrity checksum
-     ${0##*/} myfile.jpg
+  Check a files integrity checksum
+    ${0##*/} myfile.jpg
 
-   Add a new checksum to a file
-     ${0##*/} -w myfile.jpg
+  Add a new checksum to a file
+    ${0##*/} -w myfile.jpg
+
+  Adding integrify data to a file
+    integrify -a data_01.dat
+
+  Checking the integrity of a file with integrify data
+    integrify -c data_01.dat
+
+  Checking the integrity of a file with integrify data verbosely
+    integrify -c -v data_01.dat
+
+  Listing integrify data as shasum command output
+    integrify -l data_01.dat
+
+  Using shasum to check the integrity of a list of files (osx)
+    integrify -l data_01.dat | shasum -c
+
+  Recursively add integrify data to all files within a directory structure
+    find directory -type f -print0  | xargs -0 integrify -a
+
+  Recursively list the checksums as shasum output (osx)
+    find directory -type f -print0  | xargs -0 integrify -l
+
+  Locate duplicate files within a directory structure (osx)
+    integrify_dupes directory
+
+  Transfering a file to a remote machine maintainig integrify metadata
+    rsync -X data_01.dat remote_server:/destination/
 
 Info:
   When copying files, extended attributes should be preserved to ensure
