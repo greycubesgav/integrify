@@ -49,6 +49,9 @@ Examples:
   Recursively add integrify data to all files within a directory structure
     find directory -type f -print0  | xargs -0 integrify -a
 
+    osx:
+    find directory -type f -not -name '.DS_Store' -print0 | xargs -0 integrify -a
+
   Recursively list the checksums as shasum output (osx)
     find directory -type f -print0  | xargs -0 integrify -l
 
