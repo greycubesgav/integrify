@@ -6,12 +6,13 @@ Usage: integrify [OPTIONS] FILE
 Check the integrity checksum file attribute and optionally add the checksum
 
 Option  Meaning
-  -c     Check the checksum
-  -a     Add a new checksum to FILE
-  -d     Remove the checksum from FILE
-  -l     List files checksums as per a sfv file
-  -f     Set the digest function to write, default 'sha1'
-  -v     Verbose messages
+  -c    Check the checksum of FILE
+  -a    Add a new checksum to FILE
+  -s    When adding new checksums skip if the file already has checksum data
+  -d    Remove the checksum from FILE
+  -l    List files checksums as per a shasum output
+  -f    Set the digest function to write, default 'sha1'
+  -v    Verbose messages
 
 Examples:
    Check a file's integrity checksum
@@ -102,4 +103,3 @@ As the integrity data is stored along with the files, reading this data is 'chea
 
 * Test against complicated file naming, including unicode characters
 * Use the digest data stored within the integrify metadata to verify the file (currently SHA1 is assumed)
-* Option to skip files with checksum data already
