@@ -3,22 +3,52 @@
 # Simple script which used integrify to locate duplicate files within a directory
 # Tested on Darwin 16.4.0 (macOS Sierra 10.12.x)
 
+function show_help {
+ cat << EOF
+Usage: ${0##*/} [OPTIONS] DIR [DIR2]
+Check for duplicate files based on their integrify checksum
+EOF
+  exit 1
+}
+
 input_dir="$1"
+
+if [ ! -z "${2}" ]; then
+  input_dir2="$2"
+  echo "Checking 2 directories: $input_dir and $input_dir2"
+fi
+
+
 datestamp=$(date +'%s')
 integ_all_list="/tmp/${datestamp}_all_$$.integ"
+integ_chk_list="/tmp/${datestamp}_chk_$$.integ"
 integ_dup_list="/tmp/${datestamp}_dup_$$.integ"
 
-echo "tmpfile: $integ_all_list"
-echo "dupfile: $integ_dup_list"
+#echo "tmpfile: $integ_all_list"
+#echo "dupfile: $integ_dup_list"
+#echo "chkfile: $integ_chk_list"
 
+# Build the list of all files
+echo "Adding checksums from ${input_dir}"
+find "$input_dir" -type f -print0  | xargs -0 integrify -l | sort | tee "$integ_all_list" | awk '{print $1}' > "$integ_chk_list"
 
-find "$input_dir" -type f -print0  | xargs -0 integrify -l | sort | tee "$integ_all_list" | awk '{print $1}'| uniq -d > "$integ_dup_list"
+if [ ! -z "${input_dir2}" ]; then
+ echo "Adding checksums from ${input_dir2}"
+ find "$input_dir2" -type f -print0  | xargs -0 integrify -l | sort | tee -a "$integ_all_list" | awk '{print $1}' >> "$integ_chk_list"
+fi
+
+sort "$integ_chk_list" | uniq -d > "$integ_dup_list"
+
+duplicates_count=$(cat "$integ_dup_list" | wc -l | sed -E 's/ //g')
+
+echo "Found ${duplicates_count} duplicate checksums:"
 
 duplicates_list=$(cat "$integ_dup_list")
 
 IFS=$'\n';
 set -f;
 for checksum in "$duplicates_list"; do
+  echo
   if [ -n "$checksum" ]; then
     grep "$checksum" "$integ_all_list"
   fi
@@ -26,4 +56,4 @@ done;
 set +f;
 unset IFS
 
-rm -f "$integ_all_list" "$integ_dup_list"
+rm -f "$integ_all_list" "$integ_dup_list" "$integ_chk_list"
