@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+# Psudocode
+
+# Given a directory
+# A local root
+# A remote server
+# A remote root
+
+
+# Add integrify data to all files
+# List all checksums in directory to file
+# Copy file list to remote directory "directory_remote.sha1sum"
+# The hard bit
+# List all stored sha1sum files to local directory to file (needs to be files only?)
+# Sort both files by filename
+# Diff files
+
+directory="$1"
+directory_e=$( echo "$directory" | sed -E 's/ /\\ /g' )
+
+local_root="$2"
+remote_server="$3"
+
+remote_root="$4"
+remote_root_e=$( echo "$remote_root" | sed -E 's/ /\\ /g' )
+
+echo "Changing to ${local_root}"
+cd "${local_root}"
+
+echo "Adding integrify data"
+pwd
+find "${directory}" -type f -print0  | xargs -0 integrify -a -s -v
+
+echo "Find | xargs ${directory}.sha1sum"
+find "${directory}" -type f -print0  | xargs -0 integrify -m -v > "${directory}/${directory}.sha1sum"
+
+echo "Copy file to remote server"
+scp  "${directory}/${directory}.sha1sum" ${remote_server}:"${remote_root_e}/${directory_e}/${directory_e}_remote.sha1sum"
+
+echo "Run the checksum remote"
+ssh ${remote_server} "cd \"${remote_root}/${directory}/\" ; shasum -c \"${directory}_remote.sha1sum\" > integrity.out"
