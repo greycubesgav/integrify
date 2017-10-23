@@ -40,8 +40,11 @@ Examples:
   Checking the integrity of a file with integrify data verbosely
     integrify -c -v data_01.dat
 
-  Listing integrify data as shasum command output
+  Listing integrify data as shasum command output, with full filepath
     integrify -l data_01.dat
+
+  Listing integrify data as shasum command output, with only filename
+    integrify -m data_01.dat
 
   Using shasum to check the integrity of a list of files (osx)
     integrify -l data_01.dat | shasum -c
