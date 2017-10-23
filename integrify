@@ -28,12 +28,12 @@ Examples:
   Check a files integrity checksum
     ${0##*/} myfile.jpg
 
-  Add a new checksum to a file
-    ${0##*/} -w myfile.jpg
-
   Adding integrify data to a file
     integrify -a data_01.dat
 
+  Add integrify data to a file, skip if the file already has integrity data
+      integrify -a -s data_01.dat
+      
   Checking the integrity of a file with integrify data
     integrify -c data_01.dat
 
@@ -178,7 +178,7 @@ digest='sha1'
 action='check'
 
 OPTIND=1
-while getopts "vh?arsdlcf:" opt; do
+while getopts "vh?arsdlmcf:" opt; do
     case "$opt" in
     h|\?)
         show_help
@@ -191,6 +191,8 @@ while getopts "vh?arsdlcf:" opt; do
     d)  action='delete'
         ;;
     l)  action='list'
+        ;;
+    m)  action='list_trim'
         ;;
     c)  action='check'
         ;;
@@ -231,6 +233,14 @@ if [ "${action}" == 'list' ]; then
    file_current_checksum=$(read_checksum "${filename}")
    if [ ! -z "$file_current_checksum" ]; then
      echo "${file_current_checksum}  ${filename}"
+   fi
+fi
+
+if [ "${action}" == 'list_trim' ]; then
+   file_current_checksum=$(read_checksum "${filename}")
+   if [ ! -z "$file_current_checksum" ]; then
+     filename_trim=$(basename "${filename}")
+     echo "${file_current_checksum}  ${filename_trim}"
    fi
 fi
 # Generate the checksum for the file, we always need this
