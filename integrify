@@ -292,7 +292,8 @@ if [ "${action}" == 'write' ]; then
         echo " : added"
       else
         echo "${filename} : Calculated checksum and filesystem read checksum differ!" 1>&2
-        echo "  disk; [${file_current_checksum}] : calc; [${file_calc_checksum}]" 1>&2
+        echo " ├── disk; [${file_current_checksum}] " 1>&2
+        echo " └── calc; [${file_calc_checksum}]" 1>&2
         continue
       fi
     else
