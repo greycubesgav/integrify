@@ -119,7 +119,7 @@ function read_checksum {
     stored_cs="${stored_cs_raw}"
   elif [[ "${OSTYPE}" =~ ^freebsd* ]]; then
     selected=1
-    stored_cs=$(getextattr user "${attrib_key}" "${input_file}" 2>/dev/null | awk '{print $2}' )
+    stored_cs=$(getextattr user "${attrib_key}" "${input_file}" 2>/dev/null | awk '{print $NF}' )
   fi
   if [ "$selected" -eq '0' ]; then
     echo "Did not find a suitable OS type for ${OSTYPE}" 1>&2
