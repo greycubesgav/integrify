@@ -19,6 +19,7 @@ Option  Meaning
  -c     Check the checksum of FILE
  -a     Add a new checksum to FILE
  -s     When adding new checksums skip if the file already has checksum data
+ -t     When adding a new checksum test if the existing checksum 'looks' correct, skip if it does
  -d     Remove the checksum from FILE
  -l     List files checksums as per a shasum output
  -f     Set the digest function to write, default 'sha1'
@@ -181,7 +182,7 @@ digest='sha1'
 action='check'
 
 OPTIND=1
-while getopts "vh?arsdlmcf:" opt; do
+while getopts "vh?arstdlmcf:" opt; do
     case "$opt" in
     h|\?)
         show_help
@@ -191,6 +192,8 @@ while getopts "vh?arsdlmcf:" opt; do
         ;;
     s)  skip_files='1'
         ;;
+    t)  test_checksum='1'
+        ;;    
     d)  action='delete'
         ;;
     l)  action='list'
@@ -236,6 +239,10 @@ if [ "${action}" == 'list' ]; then
    file_current_checksum=$(read_checksum "${filename}")
    if [ ! -z "$file_current_checksum" ]; then
      echo "${file_current_checksum}  ${filename}"
+   else 
+      if [ "$verbose" -gt "0" ]; then
+       echo "${filename} : no checksum stored"
+      fi       
    fi
 fi
 
@@ -244,6 +251,10 @@ if [ "${action}" == 'list_trim' ]; then
    if [ ! -z "$file_current_checksum" ]; then
      filename_trim=$(basename "${filename}")
      echo "${file_current_checksum}  ${filename_trim}"
+   else 
+      if [ "$verbose" -gt "0" ]; then
+       echo "${filename} : no checksum stored"
+      fi       
    fi
 fi
 # Generate the checksum for the file, we always need this
@@ -252,9 +263,16 @@ if [ "${action}" == 'write' ]; then
   file_current_checksum=$(read_checksum "${filename}")
   if [ ! -z "${file_current_checksum}" ] && [ "${skip_files}" -gt 0 ]; then
     if [ "$verbose" -gt "0" ]; then
-      echo "${filename} : skipping"
+     echo "${filename} : checksum stored skipping"
     fi
     continue
+  elif [ ! -z "${file_current_checksum}" ] && [ "${test_checksum}" -gt 0 ]; then  
+    checksum_length=${#file_current_checksum}
+    if [ "${checksum_length}" -gt 39 ]; then
+      if [ "$verbose" -gt "0" ]; then
+       echo "${filename} : checksum over 39 chars skipping"
+      fi      
+    fi
   else
     #if [ "$verbose" -gt "0" ]; then
       #echo "adding checksum to ${filename}"
